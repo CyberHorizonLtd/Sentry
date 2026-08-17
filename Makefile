@@ -45,7 +45,6 @@ dmg: app
 	@rm -rf .dmg_dist $(DMG_NAME)
 	@mkdir -p .dmg_dist
 	@cp -R "$(APP_NAME)" .dmg_dist/
-	@if [ -f favicon.png ]; then cp favicon.png .dmg_dist/CyberHorizon-Logo.png; fi
 	@ln -s /Applications .dmg_dist/Applications
 	@hdiutil create -volname "CyberHorizon Sentry" -srcfolder .dmg_dist -ov -format UDZO -o $(DMG_NAME)
 	@rm -rf .dmg_dist
