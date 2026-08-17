@@ -1,0 +1,31 @@
+# CyberHorizon Sentry - Git Ignore
+
+# Secrets & Environment Configuration
+.env
+.env.local
+*.env
+
+# Swift & macOS Build Artifacts
+.build/
+Sentry
+CyberHorizon Sentry.app/
+CyberHorizonSentry.dmg
+.dmg_dist/
+AppIcon.icns
+
+# macOS System Files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Xcode & IDE Files
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+.idea/
+.vscode/
+
+# Scratch & Temporary Testing Files
+test_*.swift
+test_*
+*.tmp
