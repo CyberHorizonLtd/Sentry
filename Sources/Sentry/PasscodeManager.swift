@@ -1,4 +1,5 @@
 import Foundation
+import CommonCrypto
 
 enum PasscodeResult {
     case matchingNext
@@ -7,37 +8,57 @@ enum PasscodeResult {
 }
 
 final class PasscodeManager {
-    private let targetPasscode: String
+    private let targetHashes: [String]
+    private var currentPrefix: String = ""
     private var currentIndex: Int = 0
 
+    init(hashes: [String]) {
+        self.targetHashes = hashes
+    }
+
     init(passcode: String) {
-        self.targetPasscode = passcode
+        self.targetHashes = PasscodeManager.generateHashes(for: passcode)
+    }
+
+    static func sha256(_ string: String) -> String {
+        let data = Data(string.utf8)
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        data.withUnsafeBytes {
+            _ = CC_SHA256($0.baseAddress, CC_LONG(data.count), &digest)
+        }
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func generateHashes(for passcode: String) -> [String] {
+        var hashes: [String] = []
+        var prefix = ""
+        for char in passcode {
+            prefix.append(char)
+            hashes.append(sha256(prefix))
+        }
+        return hashes
     }
 
     func reset() {
+        currentPrefix = ""
         currentIndex = 0
     }
 
     func processCharacter(_ input: String) -> PasscodeResult {
-        guard !input.isEmpty else { return .matchingNext }
-        
-        let targetChars = Array(targetPasscode)
-        guard currentIndex < targetChars.count else {
-            return .unlocked
-        }
+        guard !input.isEmpty, currentIndex < targetHashes.count else { return .matchingNext }
 
-        // Compare first character of input with expected character in passcode
-        let expectedChar = String(targetChars[currentIndex])
-        
-        if input == expectedChar {
+        currentPrefix.append(input)
+        let computedHash = PasscodeManager.sha256(currentPrefix)
+        let expectedHash = targetHashes[currentIndex]
+
+        if computedHash == expectedHash {
             currentIndex += 1
-            if currentIndex == targetChars.count {
+            if currentIndex == targetHashes.count {
                 return .unlocked
             }
             return .matchingNext
         } else {
-            // Reset index on wrong key to require full password entry again
-            currentIndex = 0
+            reset()
             return .wrongKey
         }
     }

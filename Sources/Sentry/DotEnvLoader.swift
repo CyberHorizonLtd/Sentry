@@ -10,25 +10,28 @@ struct DotEnvLoader {
         let filePath = userHomeConfigPath()
         let dirPath = (filePath as NSString).deletingLastPathComponent
         
+        let hashes = PasscodeManager.generateHashes(for: passcode)
+        let hashesString = hashes.joined(separator: ",")
+
         do {
             try FileManager.default.createDirectory(atPath: dirPath, withIntermediateDirectories: true, attributes: nil)
-            let content = "# CyberHorizon Sentry Configuration\nSENTRY_PASSWORD=\(passcode)\n"
+            let content = "# CyberHorizon Sentry Security Config (Prefix SHA-256 Hashes)\nSENTRY_PASSCODE_HASHES=\(hashesString)\n"
             try content.write(toFile: filePath, atomically: true, encoding: .utf8)
-            print("[DotEnv] Saved passcode to user home config: \(filePath)")
+            print("[DotEnv] Saved SHA-256 prefix hashes (\(hashes.count) chars) to: \(filePath)")
         } catch {
-            print("[DotEnv] Error saving passcode to \(filePath): \(error)")
+            print("[DotEnv] Error saving passcode hashes to \(filePath): \(error)")
         }
     }
 
-    static func loadPasscode() -> String? {
+    static func loadPasscodeHashes() -> [String]? {
         let fileManager = FileManager.default
         let userHomePath = userHomeConfigPath()
 
         // 1. User Home Directory Config (~/.sentry/.env) - Always Highest Priority
         if fileManager.fileExists(atPath: userHomePath) {
-            if let passcode = parsePasscode(fromFile: userHomePath) {
-                print("[DotEnv] Loaded user passcode from: \(userHomePath)")
-                return passcode
+            if let hashes = parseHashes(fromFile: userHomePath) {
+                print("[DotEnv] Loaded \(hashes.count) prefix hash(es) from: \(userHomePath)")
+                return hashes
             }
         }
 
@@ -38,9 +41,9 @@ struct DotEnvLoader {
             let currentDir = fileManager.currentDirectoryPath
             let localEnvPath = (currentDir as NSString).appendingPathComponent(".env")
             if fileManager.fileExists(atPath: localEnvPath) {
-                if let passcode = parsePasscode(fromFile: localEnvPath) {
-                    print("[DotEnv] Loaded CLI dev passcode from: \(localEnvPath)")
-                    return passcode
+                if let hashes = parseHashes(fromFile: localEnvPath) {
+                    print("[DotEnv] Loaded CLI dev hash(es) from: \(localEnvPath)")
+                    return hashes
                 }
             }
         }
@@ -48,7 +51,7 @@ struct DotEnvLoader {
         return nil
     }
 
-    private static func parsePasscode(fromFile path: String) -> String? {
+    private static func parseHashes(fromFile path: String) -> [String]? {
         do {
             let content = try String(contentsOfFile: path, encoding: .utf8)
             let lines = content.components(separatedBy: .newlines)
@@ -66,8 +69,14 @@ struct DotEnvLoader {
                         value = String(value.dropFirst().dropLast())
                     }
                     
+                    if ["SENTRY_PASSCODE_HASHES", "SENTRY_PASSWORD_HASHES", "PASSCODE_HASHES"].contains(key) {
+                        let hashList = value.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+                        return hashList.isEmpty ? nil : hashList
+                    }
+
+                    // Legacy plaintext fallback: convert on-the-fly to prefix hashes
                     if ["PASSWORD", "PASSCODE", "SENTRY_PASSWORD", "SENTRY_PASSCODE"].contains(key) {
-                        return value
+                        return PasscodeManager.generateHashes(for: value)
                     }
                 }
             }

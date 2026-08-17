@@ -8,7 +8,13 @@ TARGET = Sentry
 APP_NAME = CyberHorizon Sentry.app
 DMG_NAME = CyberHorizonSentry.dmg
 
-all: icon $(TARGET) app dmg
+all: icon bg $(TARGET) app dmg
+
+bg: dmg_background.png
+
+dmg_background.png: generate_dmg_bg.swift
+	@echo "[+] Generating custom DMG background graphic..."
+	@swift generate_dmg_bg.swift
 
 icon: favicon.png
 	@echo "[+] Generating AppIcon.icns from favicon.png..."
@@ -40,20 +46,21 @@ app: $(TARGET) icon
 	@if [ -f favicon.png ]; then cp favicon.png "$(APP_NAME)/Contents/Resources/"; fi
 	@echo "[+] App bundle created at: $(APP_NAME)"
 
-dmg: app
+dmg: app bg
 	@echo "[+] Generating $(DMG_NAME)..."
 	@rm -rf .dmg_dist $(DMG_NAME)
-	@mkdir -p .dmg_dist
+	@mkdir -p .dmg_dist/.background
 	@cp -R "$(APP_NAME)" .dmg_dist/
+	@if [ -f dmg_background.png ]; then cp dmg_background.png .dmg_dist/.background/background.png; fi
 	@ln -s /Applications .dmg_dist/Applications
 	@hdiutil create -volname "CyberHorizon Sentry" -srcfolder .dmg_dist -ov -format UDZO -o $(DMG_NAME)
 	@rm -rf .dmg_dist
 	@echo "[+] Disk image created at: $(DMG_NAME)"
 
 clean:
-	rm -rf $(TARGET) "$(APP_NAME)" $(DMG_NAME) .build .dmg_dist AppIcon.icns
+	rm -rf $(TARGET) "$(APP_NAME)" $(DMG_NAME) .build .dmg_dist AppIcon.icns dmg_background.png
 
 run: $(TARGET)
 	./$(TARGET)
 
-.PHONY: all icon app dmg clean run
+.PHONY: all icon bg app dmg clean run

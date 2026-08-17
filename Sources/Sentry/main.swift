@@ -11,10 +11,10 @@ final class SentryApp: NSObject, NSApplicationDelegate {
     private var focusLockTimer: Timer?
     private let isTestingMode: Bool
 
-    init(passcode: String, isTestingMode: Bool) {
+    init(passcodeHashes: [String], isTestingMode: Bool) {
         self.isTestingMode = isTestingMode
         super.init()
-        self.passcodeManager = PasscodeManager(passcode: passcode)
+        self.passcodeManager = PasscodeManager(hashes: passcodeHashes)
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -85,7 +85,7 @@ final class SentryApp: NSObject, NSApplicationDelegate {
         } else {
             print(" [MODE]   🔊 PRODUCTION (Full 100% Volume Audio Siren)")
         }
-        print(" [SENTRY] Stealth passcode protection running...")
+        print(" [SENTRY] Stealth SHA-256 passcode protection running...")
         print("=======================================================\n")
     }
 
@@ -167,7 +167,7 @@ final class SentryApp: NSObject, NSApplicationDelegate {
 private func promptForPasscodeGUI() -> String? {
     let alert = NSAlert()
     alert.messageText = "CyberHorizon Sentry Setup"
-    alert.informativeText = "Please enter the passcode you will type to unlock your MacBook. This will be saved to ~/.sentry/.env for future launches."
+    alert.informativeText = "Please enter the passcode you will type to unlock your MacBook. This will be saved as SHA-256 hashes to ~/.sentry/.env for future launches."
     alert.alertStyle = .informational
     alert.addButton(withTitle: "Save & Arm Sentry")
     alert.addButton(withTitle: "Cancel")
@@ -188,32 +188,31 @@ private func promptForPasscodeGUI() -> String? {
 // Entry Point logic
 func main() {
     let args = CommandLine.arguments
-    var passcode: String? = nil
+    var hashes: [String]? = nil
 
     // 1. Command Line Argument
     if args.count > 1 {
-        passcode = args[1]
+        let plain = args[1]
+        hashes = PasscodeManager.generateHashes(for: plain)
         print("[Sentry] Passcode loaded from command line argument.")
     }
 
-    // 2. .env file in ~/.sentry/.env or Bundle or Directory
-    if passcode == nil {
-        if let envPasscode = DotEnvLoader.loadPasscode() {
-            passcode = envPasscode
-            print("[Sentry] Passcode loaded from .env file.")
-        }
+    // 2. Load Hashes from ~/.sentry/.env or dev file
+    if hashes == nil {
+        hashes = DotEnvLoader.loadPasscodeHashes()
     }
 
     // 3. Environment Variable
-    if passcode == nil {
+    if hashes == nil {
         if let sysEnv = ProcessInfo.processInfo.environment["SENTRY_PASSWORD"] ?? ProcessInfo.processInfo.environment["PASSWORD"] {
-            passcode = sysEnv
+            hashes = PasscodeManager.generateHashes(for: sysEnv)
             print("[Sentry] Passcode loaded from system environment variable.")
         }
     }
 
     // 4. GUI / Terminal Prompt Fallback
-    if passcode == nil || passcode!.isEmpty {
+    if hashes == nil || hashes!.isEmpty {
+        var rawPasscode: String? = nil
         if isatty(STDIN_FILENO) != 0 {
             print("CyberHorizon Sentry - Laptop Security & Anti-Theft Guard")
             print("---------------------------------------------------------")
@@ -221,21 +220,22 @@ func main() {
             fflush(stdout)
             
             if let input = readLine(), !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                passcode = input.trimmingCharacters(in: .whitespacesAndNewlines)
+                rawPasscode = input.trimmingCharacters(in: .whitespacesAndNewlines)
             }
         } else {
             // Prompt GUI Modal for App Bundle / Finder launch
             print("[Sentry] Prompting user for passcode via GUI modal...")
-            passcode = promptForPasscodeGUI()
+            rawPasscode = promptForPasscodeGUI()
         }
 
-        // Save entered passcode to user home config ~/.sentry/.env
-        if let enteredPasscode = passcode, !enteredPasscode.isEmpty {
+        // Save entered passcode as prefix SHA-256 hashes to ~/.sentry/.env
+        if let enteredPasscode = rawPasscode, !enteredPasscode.isEmpty {
             DotEnvLoader.savePasscodeToUserHome(enteredPasscode)
+            hashes = PasscodeManager.generateHashes(for: enteredPasscode)
         }
     }
 
-    guard let finalPasscode = passcode, !finalPasscode.isEmpty else {
+    guard let finalHashes = hashes, !finalHashes.isEmpty else {
         print("[Sentry] No passcode provided or setup cancelled. Exiting.")
         exit(0)
     }
@@ -246,7 +246,7 @@ func main() {
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
     
-    strongAppDelegate = SentryApp(passcode: finalPasscode, isTestingMode: isTestingMode)
+    strongAppDelegate = SentryApp(passcodeHashes: finalHashes, isTestingMode: isTestingMode)
     app.delegate = strongAppDelegate
     
     app.activate(ignoringOtherApps: true)
