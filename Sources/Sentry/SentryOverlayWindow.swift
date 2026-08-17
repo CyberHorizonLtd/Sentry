@@ -128,21 +128,29 @@ final class CyberHorizonBrandingView: NSView {
 
     private func loadLocalFaviconLogo() {
         let fileManager = FileManager.default
-        let currentDir = fileManager.currentDirectoryPath
+        var possiblePaths: [String] = []
+
+        if let bundlePath = Bundle.main.path(forResource: "favicon", ofType: "png") {
+            possiblePaths.append(bundlePath)
+        }
+        if let resourcePath = Bundle.main.resourcePath {
+            possiblePaths.append((resourcePath as NSString).appendingPathComponent("favicon.png"))
+        }
 
         let execPath = CommandLine.arguments[0]
         let execDir = (execPath as NSString).deletingLastPathComponent
+        possiblePaths.append((execDir as NSString).appendingPathComponent("favicon.png"))
+        possiblePaths.append((execDir as NSString).appendingPathComponent("../Resources/favicon.png"))
 
-        let possiblePaths = [
-            (currentDir as NSString).appendingPathComponent("favicon.png"),
-            (execDir as NSString).appendingPathComponent("favicon.png"),
-            "./favicon.png",
-            "favicon.png"
-        ]
+        let currentDir = fileManager.currentDirectoryPath
+        possiblePaths.append((currentDir as NSString).appendingPathComponent("favicon.png"))
+        possiblePaths.append("./favicon.png")
+        possiblePaths.append("favicon.png")
 
         for path in possiblePaths {
-            if fileManager.fileExists(atPath: path), let image = NSImage(contentsOfFile: path) {
-                print("[Sentry] Loaded local favicon.png from: \(path)")
+            let normalizedPath = (path as NSString).standardizingPath
+            if fileManager.fileExists(atPath: normalizedPath), let image = NSImage(contentsOfFile: normalizedPath) {
+                print("[Sentry] Loaded logo from: \(normalizedPath)")
                 self.logoImageView.image = image
                 self.hasCustomLogo = true
                 self.needsDisplay = true

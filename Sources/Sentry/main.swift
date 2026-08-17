@@ -175,7 +175,7 @@ func main() {
         print("[Sentry] Passcode loaded from command line argument.")
     }
 
-    // 2. .env file
+    // 2. .env file in Bundle or Directory
     if passcode == nil {
         if let envPasscode = DotEnvLoader.loadPasscode() {
             passcode = envPasscode
@@ -191,18 +191,23 @@ func main() {
         }
     }
 
-    // 4. Interactive Prompt Fallback
+    // 4. GUI / Terminal Prompt Fallback
     if passcode == nil || passcode!.isEmpty {
-        print("CyberHorizon Sentry - Laptop Security & Anti-Theft Guard")
-        print("---------------------------------------------------------")
-        print("Set your unlock passcode: ", terminator: "")
-        fflush(stdout)
+        if isatty(STDIN_FILENO) != 0 {
+            print("CyberHorizon Sentry - Laptop Security & Anti-Theft Guard")
+            print("---------------------------------------------------------")
+            print("Set your unlock passcode: ", terminator: "")
+            fflush(stdout)
+            
+            if let input = readLine(), !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                passcode = input.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
         
-        if let input = readLine(), !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            passcode = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            print("Error: Passcode cannot be empty. Exiting.")
-            exit(1)
+        // Fallback default if launched from Finder/GUI without .env or terminal
+        if passcode == nil || passcode!.isEmpty {
+            passcode = "cyberhorizon123"
+            print("[Sentry] GUI launch fallback -> Default unlock passcode: cyberhorizon123")
         }
     }
 
