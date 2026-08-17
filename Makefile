@@ -38,7 +38,6 @@ app: $(TARGET) icon
 	@cp Info.plist "$(APP_NAME)/Contents/Info.plist"
 	@if [ -f AppIcon.icns ]; then cp AppIcon.icns "$(APP_NAME)/Contents/Resources/"; fi
 	@if [ -f favicon.png ]; then cp favicon.png "$(APP_NAME)/Contents/Resources/"; fi
-	@if [ -f .env ]; then cp .env "$(APP_NAME)/Contents/Resources/"; fi
 	@echo "[+] App bundle created at: $(APP_NAME)"
 
 dmg: app
