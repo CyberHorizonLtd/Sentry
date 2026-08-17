@@ -164,6 +164,27 @@ final class SentryApp: NSObject, NSApplicationDelegate {
     }
 }
 
+private func promptForPasscodeGUI() -> String? {
+    let alert = NSAlert()
+    alert.messageText = "CyberHorizon Sentry Setup"
+    alert.informativeText = "Please enter the passcode you will type to unlock your MacBook. This will be saved to ~/.sentry/.env for future launches."
+    alert.alertStyle = .informational
+    alert.addButton(withTitle: "Save & Arm Sentry")
+    alert.addButton(withTitle: "Cancel")
+
+    let inputField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+    inputField.placeholderString = "Enter unlock passcode"
+    alert.accessoryView = inputField
+
+    NSApp.activate(ignoringOtherApps: true)
+    let response = alert.runModal()
+    if response == .alertFirstButtonReturn {
+        let text = inputField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+    return nil
+}
+
 // Entry Point logic
 func main() {
     let args = CommandLine.arguments
@@ -175,7 +196,7 @@ func main() {
         print("[Sentry] Passcode loaded from command line argument.")
     }
 
-    // 2. .env file in Bundle or Directory
+    // 2. .env file in ~/.sentry/.env or Bundle or Directory
     if passcode == nil {
         if let envPasscode = DotEnvLoader.loadPasscode() {
             passcode = envPasscode
@@ -202,18 +223,21 @@ func main() {
             if let input = readLine(), !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 passcode = input.trimmingCharacters(in: .whitespacesAndNewlines)
             }
+        } else {
+            // Prompt GUI Modal for App Bundle / Finder launch
+            print("[Sentry] Prompting user for passcode via GUI modal...")
+            passcode = promptForPasscodeGUI()
         }
-        
-        // Fallback default if launched from Finder/GUI without .env or terminal
-        if passcode == nil || passcode!.isEmpty {
-            passcode = "cyberhorizon123"
-            print("[Sentry] GUI launch fallback -> Default unlock passcode: cyberhorizon123")
+
+        // Save entered passcode to user home config ~/.sentry/.env
+        if let enteredPasscode = passcode, !enteredPasscode.isEmpty {
+            DotEnvLoader.savePasscodeToUserHome(enteredPasscode)
         }
     }
 
     guard let finalPasscode = passcode, !finalPasscode.isEmpty else {
-        print("Error: Invalid passcode configuration.")
-        exit(1)
+        print("[Sentry] No passcode provided or setup cancelled. Exiting.")
+        exit(0)
     }
 
     let isTestingMode = DotEnvLoader.loadTestingMode()

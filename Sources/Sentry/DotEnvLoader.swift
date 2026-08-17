@@ -1,11 +1,34 @@
 import Foundation
 
 struct DotEnvLoader {
+    static func userHomeConfigPath() -> String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        return (home as NSString).appendingPathComponent(".sentry/.env")
+    }
+
+    static func savePasscodeToUserHome(_ passcode: String) {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let dirPath = (home as NSString).appendingPathComponent(".sentry")
+        let filePath = (dirPath as NSString).appendingPathComponent(".env")
+        
+        do {
+            try FileManager.default.createDirectory(atPath: dirPath, withIntermediateDirectories: true, attributes: nil)
+            let content = "# CyberHorizon Sentry Configuration\nSENTRY_PASSWORD=\(passcode)\n"
+            try content.write(toFile: filePath, atomically: true, encoding: .utf8)
+            print("[DotEnv] Saved passcode to user home config: \(filePath)")
+        } catch {
+            print("[DotEnv] Error saving passcode to \(filePath): \(error)")
+        }
+    }
+
     static func loadPasscode() -> String? {
         let fileManager = FileManager.default
         var possiblePaths: [String] = []
 
-        // 1. App Bundle Resource Path (Contents/Resources/.env)
+        // 1. User Home Directory Config (~/.sentry/.env) - Highest Priority
+        possiblePaths.append(userHomeConfigPath())
+
+        // 2. App Bundle Resource Path (Contents/Resources/.env)
         if let bundlePath = Bundle.main.path(forResource: ".env", ofType: nil) {
             possiblePaths.append(bundlePath)
         }
@@ -13,13 +36,13 @@ struct DotEnvLoader {
             possiblePaths.append((resourcePath as NSString).appendingPathComponent(".env"))
         }
 
-        // 2. Executable Directory & Parent Directories
+        // 3. Executable Directory & Parent Directories
         let execPath = CommandLine.arguments[0]
         let execDir = (execPath as NSString).deletingLastPathComponent
         possiblePaths.append((execDir as NSString).appendingPathComponent(".env"))
         possiblePaths.append((execDir as NSString).appendingPathComponent("../Resources/.env"))
 
-        // 3. Current Working Directory
+        // 4. Current Working Directory
         let currentDir = fileManager.currentDirectoryPath
         possiblePaths.append((currentDir as NSString).appendingPathComponent(".env"))
         possiblePaths.append("./.env")
@@ -70,6 +93,8 @@ struct DotEnvLoader {
     static func loadTestingMode() -> Bool {
         let fileManager = FileManager.default
         var possiblePaths: [String] = []
+
+        possiblePaths.append(userHomeConfigPath())
 
         if let bundlePath = Bundle.main.path(forResource: ".env", ofType: nil) {
             possiblePaths.append(bundlePath)
