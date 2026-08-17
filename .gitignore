@@ -7,9 +7,9 @@
 
 # Swift & macOS Build Artifacts
 .build/
-Sentry
-CyberHorizon Sentry.app/
-CyberHorizonSentry.dmg
+/Sentry
+/CyberHorizon Sentry.app/
+/CyberHorizonSentry.dmg
 .dmg_dist/
 AppIcon.icns
 
